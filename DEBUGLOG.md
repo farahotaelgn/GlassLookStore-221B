@@ -76,3 +76,9 @@ Each error: date and version, what failed, real cause and proof, fix (files), te
 - **Fix:** `Views/SelfTestView.swift` builds the list with one `c.append(...)` per check (same 17 checks, same order).
 - **Test:** the next GitHub run under the same Go.
 - **Rating:** 9/10, proof by build log, confidence 90 %. **Status:** fixed, waiting for the rerun.
+
+## 2026-11-05 · 0.1.0 (build 1), BUILT on the new Codemagic account
+
+- **Build:** Codemagic 6aece8d6aabd167368bcb247 (app 6aece8c0d7c030383018211c, repo GlassLookStore-221B), Xcode 26.6: 0 warnings, 5 of 5 UI tests passed, the built-in 🧪 Test 17 of 17. `.ipa` 2.5 MB with the widget and the shaders.
+- **Issue 7 proven fixed:** the app no longer closes during the 🧪 Test after `ManualProvider` keeps its SwiftData container (check `provider.manual` passed). Rating 9/10, proof by test run.
+- **Not proven on a device:** everything on your iPhone (glass, lens feel, haptics, widgets, Live Activity, Apple AI).

@@ -8,7 +8,7 @@ Versions are X.Y.Z (X has no limit, Y and Z go to 9 and roll over). Tags: ✨ Ne
 
 ## 0.1.0 · 2026-11-05 18:00 UTC · The first glass
 
-Written and pushed; **not built yet** (the Codemagic build waits for the owner's typed Go). Never compiled.
+**Built** after the owner's typed Go: Codemagic 6aece8d6aabd167368bcb247 (new account, repo GlassLookStore-221B), 0 warnings, 5 of 5 UI tests, 🧪 Test 17 of 17, `GlassLookStore-v0.1.0.ipa` 2.5 MB. Earlier runs fixed: Metal Toolchain, Settings rows, test label, SwiftData container, Xcode 26.3 type checker (see DEBUGLOG). Not proven on a device yet.
 
 ### Changes
 

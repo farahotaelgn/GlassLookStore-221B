@@ -18,7 +18,7 @@ Native SwiftUI app for iOS 26 (Swift 6, XcodeGen `project.yml`): a live counter 
 
 ## Status
 
-**0.1.0 (build 1): written, not delivered.** Owner typed Go on 2026-11-05. Codemagic runs 1 to 4 (compiled first time, 0 warnings, 4 of 5 UI tests) then billing ran out; GitHub on the private Supplies repo got no Mac. Moved here (public) the same day. Open: the app closed during the 🧪 Test in Codemagic run 4 (likely `ManualProvider` released its SwiftData container; fixed, not proven). The code also stays in CPAP-Supplies-Log-221B `GlassLookStore/` (not deleted, rule 3.10).
+**0.1.0 (build 1): BUILT AND DELIVERED 2026-11-05 ~20:45 UTC** (Codemagic 6aece8d6aabd167368bcb247 on the owner's new Codemagic account, app 6aece8c0d7c030383018211c; 0 warnings, 5/5 UI tests, 🧪 17/17). Next: owner installs, runs 🧪 Test, pastes 📋 Copy for Claude; regenerate the Codemagic key pasted in chat; owner makes this repo private (owner: "Make it private after I created a new code magic account"). Before: **0.1.0 written, not delivered.** Owner typed Go on 2026-11-05. Codemagic runs 1 to 4 (compiled first time, 0 warnings, 4 of 5 UI tests) then billing ran out; GitHub on the private Supplies repo got no Mac. Moved here (public) the same day. Open: the app closed during the 🧪 Test in Codemagic run 4 (likely `ManualProvider` released its SwiftData container; fixed, not proven). The code also stays in CPAP-Supplies-Log-221B `GlassLookStore/` (not deleted, rule 3.10).
 
 ---
 
