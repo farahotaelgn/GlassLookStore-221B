@@ -21,8 +21,9 @@ struct CheckOutcome: Sendable {
 @MainActor
 enum FeatureChecks {
     static func all(store: LiveStore) -> [FeatureCheck] {
-        [
-            FeatureCheck(id: "bar.layout", name: "Bar sizes and centred tabs (IMG7)") {
+        // One append per check: a single 17-closure array literal timed out the type checker on Xcode 26.3.
+        var c: [FeatureCheck] = []
+        c.append(FeatureCheck(id: "bar.layout", name: "Bar sizes and centred tabs (IMG7)") {
                 for w in [358.0, 390.0, 402.0] as [CGFloat] {
                     let l = BarLayout(width: w)
                     let leftGap = l.center(0) - l.pillWidth / 2, rightGap = w - (l.center(4) + l.pillWidth / 2)
@@ -33,8 +34,8 @@ enum FeatureChecks {
                 }
                 let ok = BarLayout.height == 62 && BarLayout.lensHeight == 71.5 && BarLayout.zoom == 1.4 && BarLayout.press == 1.035
                 return .check(ok, ok ? "62 pt bar, pill 4.3 pt inside each end, tabs centred" : "reference sizes changed")
-            },
-            FeatureCheck(id: "bar.lens", name: "Lens snap, spring and Reduce Motion") {
+            })
+        c.append(FeatureCheck(id: "bar.lens", name: "Lens snap, spring and Reduce Motion") {
                 let l = BarLayout(width: 390)
                 let mid = (l.center(1) + l.center(2)) / 2 - 1
                 guard l.nearest(mid) == 1, l.nearest(-50) == 0, l.nearest(999) == 4 else { return .fail("nearest tab is wrong") }
@@ -42,36 +43,36 @@ enum FeatureChecks {
                 guard abs(rest.width - l.pillWidth) < 0.01, abs(full.height - 71.5) < 0.01 else { return .fail("lens size \(full)") }
                 guard BarLayout.springResponse == 0.35, BarLayout.springDamping == 0.7 else { return .fail("spring changed") }
                 return .check(BarLayout.zoom(reduceMotion: true) == 1, "snaps, spring 0.35 / 0.7, no zoom with Reduce Motion")
-            },
-            FeatureCheck(id: "hero.clock", name: "Hero clock and countdown") {
+            })
+        c.append(FeatureCheck(id: "hero.clock", name: "Hero clock and countdown") {
                 let now = Date(timeIntervalSince1970: 100_000)
                 let a = CounterSnapshot.clock(from: now.addingTimeInterval(-(2 * 3600 + 14 * 60 + 59)), now: now)
                 let b = CounterSnapshot.countdown(to: now.addingTimeInterval(3 * 3600 + 41 * 60 + 9), now: now)
                 return .check(a == "02:14" && b == "03:41:09", "\(a), \(b)")
-            },
-            FeatureCheck(id: "provider.mock", name: "Mock numbers move and stay in range") {
+            })
+        c.append(FeatureCheck(id: "provider.mock", name: "Mock numbers move and stay in range") {
                 let m = MockProvider(now: .now)
                 let a = await m.snapshot(now: .now), b = await m.snapshot(now: .now.addingTimeInterval(60))
                 let ok = (0...1).contains(a.usageLeft) && b.tokensToday > a.tokensToday && a.weekUsage.count == 7 && a.monthUsage.count == 30
                 return .check(ok, "tokens \(a.tokensToday) → \(b.tokensToday), usage \(Int(a.usageLeft * 100)) %")
-            },
-            FeatureCheck(id: "provider.manual", name: "Manual values saved with SwiftData") {
+            })
+        c.append(FeatureCheck(id: "provider.manual", name: "Manual values saved with SwiftData") {
                 let p = ManualProvider(container: ManualProvider.makeContainer(inMemory: true))
                 p.values().tokensToday = 1234
                 p.values().usageLeft = 0.42
                 p.save()
                 let s = await p.snapshot(now: .now)
                 return .check(s.tokensToday == 1234 && abs(s.usageLeft - 0.42) < 0.0001, "read back \(s.tokensToday), \(s.usageLeft)")
-            },
-            FeatureCheck(id: "keychain", name: "Keychain write, read, delete") {
+            })
+        c.append(FeatureCheck(id: "keychain", name: "Keychain write, read, delete") {
                 let key = "selftest.key"
                 KeychainStore.save("abcd1234", for: key)
                 let back = KeychainStore.read(key)
                 KeychainStore.delete(key)
                 return .check(back == "abcd1234" && KeychainStore.read(key) == nil && KeychainStore.masked("abcd1234") == "•••• 1234",
                               back == nil ? "Keychain refused the write" : "round trip OK")
-            },
-            FeatureCheck(id: "widget.snapshot", name: "Widget data in the App Group") {
+            })
+        c.append(FeatureCheck(id: "widget.snapshot", name: "Widget data in the App Group") {
                 guard SharedSnapshot.defaults != nil else { return .fail("App Group not available (the .ipa must keep its entitlement)") }
                 let before = SharedSnapshot.load()
                 var s = CounterSnapshot.placeholder()
@@ -80,15 +81,15 @@ enum FeatureChecks {
                 let ok = SharedSnapshot.load()?.tokensToday == 777
                 SharedSnapshot.save(before ?? store.snapshot)
                 return .check(ok, ok ? "saved and read back, your data restored" : "read back failed")
-            },
-            FeatureCheck(id: "liveactivity", name: "Live Activity content encodes") {
+            })
+        c.append(FeatureCheck(id: "liveactivity", name: "Live Activity content encodes") {
                 let st = SessionActivityAttributes.ContentState(usageLeft: 0.5, tokens: 10, status: "x", buildOK: true)
                 guard let d = try? JSONEncoder().encode(st), let back = try? JSONDecoder().decode(SessionActivityAttributes.ContentState.self, from: d) else {
                     return .fail("encode failed")
                 }
                 return .check(back == st, LiveActivityManager.shared.statusLine)
-            },
-            FeatureCheck(id: "haptics", name: "Haptics follow the switch (dry run)") {
+            })
+        c.append(FeatureCheck(id: "haptics", name: "Haptics follow the switch (dry run)") {
                 let was = AppSettings.shared.hapticsOn
                 Haptics.dryRun = true
                 Haptics.clearLog()
@@ -101,8 +102,8 @@ enum FeatureChecks {
                 AppSettings.shared.hapticsOn = was
                 Haptics.dryRun = false
                 return .check(offCount == 0 && onCount == 4, "off \(offCount), on \(onCount)")
-            },
-            FeatureCheck(id: "theme.colors", name: "Every colour in light and dark") {
+            })
+        c.append(FeatureCheck(id: "theme.colors", name: "Every colour in light and dark") {
                 for name in GlassPalette.names {
                     for style in [UIUserInterfaceStyle.light, .dark] {
                         guard UIColor(named: name)?.resolvedColor(with: UITraitCollection(userInterfaceStyle: style)) != nil else {
@@ -113,18 +114,18 @@ enum FeatureChecks {
                 let l = UIColor(named: "AccentBlue")?.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
                 let d = UIColor(named: "AccentBlue")?.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
                 return .check(l != d, "\(GlassPalette.names.count) colour sets, light and dark differ")
-            },
-            FeatureCheck(id: "card.glass", name: "Shaders are in the app") {
+            })
+        c.append(FeatureCheck(id: "card.glass", name: "Shaders are in the app") {
                 let lib = Bundle.main.url(forResource: "default", withExtension: "metallib")
                 return .check(lib != nil, lib == nil ? "default.metallib missing (GlassLens, LiquidWave)" : "GlassLens and LiquidWave compiled")
-            },
-            FeatureCheck(id: "ai.glass", name: "AI glass values in range") {
+            })
+        c.append(FeatureCheck(id: "ai.glass", name: "AI glass values in range") {
                 let a = GlassAdviceValues.iPhoneReading(dark: false), b = GlassAdviceValues.iPhoneReading(dark: true)
                 let now = AIGlass.shared.advice
                 return .check(a.isValid && b.isValid && now.isValid,
                               "decided by \(now.who); Apple AI \(AIGlass.appleAvailable ? "available" : "not available on this iPhone")")
-            },
-            FeatureCheck(id: "icons.packs", name: "Icon packs: every tab icon or an SF Symbols fallback") {
+            })
+        c.append(FeatureCheck(id: "icons.packs", name: "Icon packs: every tab icon or an SF Symbols fallback") {
                 var found = 0, fallback = 0
                 for p in IconPacks.all {
                     for tab in AppTab.allCases {
@@ -133,19 +134,19 @@ enum FeatureChecks {
                     }
                 }
                 return .check(found > 0, "\(IconPacks.all.count) packs, \(found) icons, \(fallback) use SF Symbols")
-            },
-            FeatureCheck(id: "version", name: "Version X.Y.Z matches the Updates Log") {
+            })
+        c.append(FeatureCheck(id: "version", name: "Version X.Y.Z matches the Updates Log") {
                 let v = Bundle.main.versionString
                 let parts = v.split(separator: ".").compactMap { Int($0) }
                 let ok = parts.count == 3 && parts[1] <= 9 && parts[2] <= 9 && UpdatesLog.versions.first?.version == v
                 return .check(ok, "app \(v), log \(UpdatesLog.versions.first?.version ?? "none")")
-            },
-            FeatureCheck(id: "updates.checks", name: "Every new feature has a check") {
+            })
+        c.append(FeatureCheck(id: "updates.checks", name: "Every new feature has a check") {
                 let ids = Set(all(store: store).map(\.id))
                 let missing = UpdatesLog.versions.flatMap(\.changes).filter { $0.tag == .new && ($0.check.map { !ids.contains($0) } ?? true) }
                 return .check(missing.isEmpty, missing.isEmpty ? "all ✨ changes are tested" : "no check: \(missing.map(\.text).joined(separator: "; "))")
-            },
-            FeatureCheck(id: "settings.persist", name: "Settings survive (rule 14.49)") {
+            })
+        c.append(FeatureCheck(id: "settings.persist", name: "Settings survive (rule 14.49)") {
                 guard let d = UserDefaults(suiteName: "glasslookstore.selftest") else { return .fail("test settings store unavailable") }
                 let a = AppSettings(defaults: d)
                 a.wavyCardEdges = true
@@ -154,15 +155,15 @@ enum FeatureChecks {
                 let ok = b.wavyCardEdges && b.signature == "Test"
                 d.removePersistentDomain(forName: "glasslookstore.selftest")
                 return .check(ok, ok ? "saved and read back" : "lost a setting")
-            },
-            FeatureCheck(id: "speed", name: "Speed: data and layout under 0.1 s") {
+            })
+        c.append(FeatureCheck(id: "speed", name: "Speed: data and layout under 0.1 s") {
                 let t0 = Date.now
                 _ = await MockProvider().snapshot(now: .now)
                 for w in stride(from: 300.0, to: 440.0, by: 1.0) { _ = BarLayout(width: CGFloat(w)).nearest(150) }
                 let ms = Date.now.timeIntervalSince(t0) * 1000
                 return .check(ms < 100, String(format: "%.1f ms", ms))
-            }
-        ]
+            })
+        return c
     }
 }
 

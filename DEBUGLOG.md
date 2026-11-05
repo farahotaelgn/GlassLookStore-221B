@@ -69,3 +69,10 @@ Each error: date and version, what failed, real cause and proof, fix (files), te
 - **What failed:** the 5th Codemagic run was refused: `BILLING_NOT_ENABLED`.
 - **Fix (owner: "Build in github"):** new GitHub Actions workflow `.github/workflows/glasslookstore-ipa.yml` (macos-15, newest Xcode 26, the same steps as Codemagic, .ipa and screenshots kept as artifacts). Codemagic workflow kept.
 - **Status:** GitHub run 42101480077 failed in 2 s with no runner (runner id 0, no log, empty check output), like this repo's two earlier GitHub Mac runs (41128610884, 41148469027, Oct 30 and 31). Likely cause: GitHub Actions will not give Mac minutes to this private repo (billing or spending limit); GitHub did not say so, so not proven. Owner: Codemagic billing refreshes with the new month.
+
+### 9. Type checker timeout on GitHub (Xcode 26.3)
+- **What failed:** GitHub run 42103384596 (GlassLookStore-221B): `SelfTestView.swift:24: the compiler is unable to type-check this expression in reasonable time`. Codemagic (Xcode 26.6) compiled the same code.
+- **Real cause and proof:** one array literal of 17 trailing closures in `FeatureChecks.all`; the build log names line 24, the start of that literal; the older compiler gave up.
+- **Fix:** `Views/SelfTestView.swift` builds the list with one `c.append(...)` per check (same 17 checks, same order).
+- **Test:** the next GitHub run under the same Go.
+- **Rating:** 9/10, proof by build log, confidence 90 %. **Status:** fixed, waiting for the rerun.
