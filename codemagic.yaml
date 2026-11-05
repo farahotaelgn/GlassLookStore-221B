@@ -1,0 +1,76 @@
+# GlassLookStore 221B - unsigned IPA + light/dark simulator screenshots (Codemagic).
+workflows:
+  # GlassLookStore (live counter dashboard, Liquid Glass): unsigned IPA + light/dark simulator screenshots.
+  # Repo GlassLookStore-221B; Claude starts it through the Codemagic API (branch main) only after the owner types Go.
+  glasslookstore-ipa:
+    name: GlassLookStore iPhone IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 75
+    environment:
+      xcode: latest
+    scripts:
+      - name: Show Xcode
+        script: xcodebuild -version
+      - name: Install XcodeGen
+        script: command -v xcodegen >/dev/null || brew install xcodegen
+      - name: Make the Xcode project
+        script: xcodegen generate --spec project.yml
+      - name: Get the Metal Toolchain (Xcode 26 ships it separately; the shaders need it)
+        script: xcodebuild -downloadComponent MetalToolchain || xcodebuild -downloadComponent metalToolchain
+      - name: Build the app, unsigned
+        script: |
+          set -o pipefail
+          xcodebuild -project GlassLookStore.xcodeproj -scheme GlassLookStore -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build > build.log 2>&1 || {
+              echo "==== Compiler errors ===="
+              grep -E "error:" build.log | sort -u | head -120
+              echo "==== Last 40 lines ===="
+              tail -40 build.log
+              exit 1
+            }
+          echo "BUILD SUCCEEDED"
+          echo "Warnings: $(grep -c "warning:" build.log || true)"
+          grep -E "warning:" build.log | sort -u | head -60 || true
+      - name: UI tests and screenshots on the iPhone 17 Pro simulator (light and dark)
+        script: |
+          set -o pipefail
+          SIM=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; ks=sorted([k for k in d if 'iOS' in k], reverse=True); pro=[x['udid'] for k in ks for x in d[k] if x['name']=='iPhone 17 Pro']; anyp=[x['udid'] for k in ks for x in d[k] if 'iPhone' in x['name']]; print((pro or anyp or [''])[0])")
+          if [ -z "$SIM" ]; then echo "No iPhone simulator found"; exit 1; fi
+          echo "Simulator: $(xcrun simctl list devices | grep "$SIM")"
+          mkdir -p dist/Screenshots
+          TEST_RUNNER_SCREENSHOT_DIR="$PWD/dist/Screenshots" xcodebuild test -project GlassLookStore.xcodeproj -scheme GlassLookStore \
+            -destination "id=$SIM" -derivedDataPath build-tests CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="" \
+            > test.log 2>&1 || {
+              echo "==== Test failures ===="
+              grep -E "error:|failed|XCTAssert" test.log | sort -u | head -80
+              tail -40 test.log
+              mkdir -p dist/CrashReports && cp ~/Library/Logs/DiagnosticReports/GlassLookStore* dist/CrashReports/ 2>/dev/null || true
+              ls dist/CrashReports
+              for f in dist/CrashReports/*; do [ -f "$f" ] && head -120 "$f"; done
+              (cd dist && zip -qry GlassLookStore-Screenshots.zip Screenshots CrashReports) || true
+              exit 1
+            }
+          grep -E "Test Case .*(passed|failed)|Executed" test.log | tail -40
+          ls dist/Screenshots
+          mkdir -p dist/CrashReports && cp ~/Library/Logs/DiagnosticReports/GlassLookStore* dist/CrashReports/ 2>/dev/null || true
+      - name: Give the app and widget their App Group
+        script: |
+          APP="build/Build/Products/Release-iphoneos/GlassLookStore.app"
+          codesign -f -s - --entitlements GlassLookStoreWidget/GlassLookStoreWidget.entitlements "$APP/PlugIns/GlassLookStoreWidget.appex"
+          codesign -f -s - --entitlements GlassLookStore/GlassLookStore.entitlements "$APP"
+      - name: Pack the IPA and the screenshots
+        script: |
+          VERSION=$(grep -m1 'MARKETING_VERSION' project.yml | sed -E 's/.*"([0-9.]+)".*/\1/')
+          APP="build/Build/Products/Release-iphoneos/GlassLookStore.app"
+          rm -rf Payload && mkdir -p Payload dist
+          cp -R "$APP" Payload/
+          zip -qry "dist/GlassLookStore-v$VERSION.ipa" Payload
+          (cd dist && zip -qry "GlassLookStore-v$VERSION-Screenshots.zip" Screenshots)
+          ls -lh dist
+    artifacts:
+      - dist/*.ipa
+      - dist/*.zip
+      - build.log
+      - test.log
