@@ -1,0 +1,116 @@
+# GlassLookStore: live counter dashboard for coding, Liquid Glass look (IMG1 to IMG7).
+# XcodeGen spec. Codemagic workflow "glasslookstore-ipa" (repo codemagic.yaml) builds it; Scripts/BuildIpa.sh builds it on a Mac.
+name: GlassLookStore
+options:
+  bundleIdPrefix: com.fady
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+  configs:
+    Release:
+      DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+      DEAD_CODE_STRIPPING: YES
+targets:
+  GlassLookStore:
+    type: application
+    platform: iOS
+    sources:
+      - path: GlassLookStore
+        excludes:
+          - "Widgets/GlassLookStoreWidget.swift"
+    info:
+      path: GlassLookStore/Info.plist
+      properties:
+        CFBundleDisplayName: GlassLookStore
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: false
+        ITSAppUsesNonExemptEncryption: false
+    entitlements:
+      path: GlassLookStore/GlassLookStore.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.fady.glasslookstore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fady.glasslookstore
+        PRODUCT_NAME: GlassLookStore
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentBlue
+    dependencies:
+      - target: GlassLookStoreWidget
+  GlassLookStoreWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: GlassLookStore/Widgets
+      - path: GlassLookStore/Data/CounterProvider.swift
+      - path: GlassLookStore/Theme/GlassTheme.swift
+      - path: GlassLookStore/Resources/Assets.xcassets
+    info:
+      path: GlassLookStoreWidget/Info.plist
+      properties:
+        CFBundleDisplayName: GlassLookStore
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSSupportsLiveActivities: true
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: GlassLookStoreWidget/GlassLookStoreWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.fady.glasslookstore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fady.glasslookstore.widget
+        PRODUCT_NAME: GlassLookStoreWidget
+        SKIP_INSTALL: YES
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WIDGET_EXTENSION"
+  GlassLookStoreUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: GlassLookStoreUITests
+    dependencies:
+      - target: GlassLookStore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fady.glasslookstore.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: GlassLookStore
+schemes:
+  GlassLookStore:
+    build:
+      targets:
+        GlassLookStore: all
+        GlassLookStoreWidget: all
+    test:
+      config: Debug
+      targets:
+        - GlassLookStoreUITests
+    run:
+      config: Debug
+    archive:
+      config: Release

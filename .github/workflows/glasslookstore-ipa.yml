@@ -1,0 +1,86 @@
+# GlassLookStore: unsigned .ipa + light and dark simulator screenshots, built on GitHub's own Mac
+# in the public repo GlassLookStore-221B (owner, 2026-11-05: "Build in github"; free GitHub Macs for public repos). Same steps as the Codemagic
+# workflow glasslookstore-ipa. Claude starts it only after the owner's typed Go, downloads the files and sends them.
+name: GlassLookStore .ipa
+on:
+  workflow_dispatch:
+concurrency:
+  group: glasslookstore-ipa
+  cancel-in-progress: false
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick the newest Xcode (Liquid Glass needs the iOS 26 SDK)
+        run: |
+          X=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+          V=$(xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1)
+          [ "$V" -ge 26 ] || { echo "Xcode $V is older than 26"; exit 1; }
+      - name: Install XcodeGen
+        run: command -v xcodegen >/dev/null || brew install xcodegen
+      - name: Make the Xcode project
+        run: xcodegen generate --spec project.yml
+      - name: Get the Metal Toolchain (Xcode 26 ships it separately; the shaders need it)
+        run: xcodebuild -downloadComponent MetalToolchain || xcodebuild -downloadComponent metalToolchain || true
+      - name: Build the app, unsigned
+        run: |
+          set -o pipefail
+          mkdir -p dist
+          xcodebuild -project GlassLookStore.xcodeproj -scheme GlassLookStore -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build > dist/build.log 2>&1 || {
+              echo "==== Compiler errors ===="
+              grep -E "error:" dist/build.log | sort -u | head -120
+              tail -40 dist/build.log
+              exit 1
+            }
+          echo "BUILD SUCCEEDED, warnings: $(grep -c 'warning:' dist/build.log || true)"
+          grep -E "warning:" dist/build.log | sort -u | head -40 || true
+      - name: UI tests and screenshots on the iPhone 17 Pro simulator (light and dark)
+        run: |
+          set -o pipefail
+          SIM=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; ks=sorted([k for k in d if 'iOS' in k], reverse=True); pro=[x['udid'] for k in ks for x in d[k] if x['name']=='iPhone 17 Pro']; anyp=[x['udid'] for k in ks for x in d[k] if 'iPhone' in x['name']]; print((pro or anyp or [''])[0])")
+          if [ -z "$SIM" ]; then echo "No iPhone simulator found"; exit 1; fi
+          echo "Simulator: $(xcrun simctl list devices | grep "$SIM")"
+          mkdir -p dist/Screenshots dist/CrashReports
+          STATUS=0
+          TEST_RUNNER_SCREENSHOT_DIR="$PWD/dist/Screenshots" xcodebuild test -project GlassLookStore.xcodeproj -scheme GlassLookStore \
+            -destination "id=$SIM" -derivedDataPath build-tests CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="" \
+            > dist/test.log 2>&1 || STATUS=$?
+          cp ~/Library/Logs/DiagnosticReports/GlassLookStore* dist/CrashReports/ 2>/dev/null || true
+          grep -E "Test Case .*(passed|failed)|Executed|error:" dist/test.log | sort -u | tail -40
+          ls dist/Screenshots dist/CrashReports
+          exit $STATUS
+      - name: Give the app and widget their App Group, pack the .ipa
+        run: |
+          VERSION=$(grep -m1 'MARKETING_VERSION' project.yml | sed -E 's/.*"([0-9.]+)".*/\1/')
+          APP="build/Build/Products/Release-iphoneos/GlassLookStore.app"
+          codesign -f -s - --entitlements GlassLookStoreWidget/GlassLookStoreWidget.entitlements "$APP/PlugIns/GlassLookStoreWidget.appex"
+          codesign -f -s - --entitlements GlassLookStore/GlassLookStore.entitlements "$APP"
+          rm -rf Payload && mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry "dist/GlassLookStore-v$VERSION.ipa" Payload
+          ls -lh dist
+      - name: Keep the .ipa
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlassLookStore-ipa
+          path: dist/*.ipa
+          retention-days: 14
+      - name: Keep the screenshots, crash reports and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlassLookStore-screenshots-and-logs
+          path: |
+            dist/Screenshots
+            dist/CrashReports
+            dist/build.log
+            dist/test.log
+          retention-days: 14

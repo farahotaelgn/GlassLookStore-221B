@@ -1,0 +1,10 @@
+# Made by XcodeGen and the build, never committed
+*.xcodeproj
+build/
+build-tests/
+Build/
+dist/
+Payload/
+GlassLookStore/Info.plist
+GlassLookStore/GlassLookStore.entitlements
+GlassLookStoreWidget/
